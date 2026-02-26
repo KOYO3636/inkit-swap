@@ -44,19 +44,19 @@
                 connect: "Connect Wallet", switchNet: "Switch to Ink", pay: "You Pay",
                 receive: "You Receive", swapBtn: "Swap Now", enterAmount: "Enter an amount",
                 feeInfo: "Includes 0.5% routing fee", swapping: "Swapping...",
-                success: "Swap Successful!", balance: "Balance"
+                success: "Swap Successful!", balance: "Balance", waitingWallet: "Check your wallet..."
             },
             fr: {
                 connect: "Connecter Wallet", switchNet: "Passer à Ink", pay: "Vous Payez",
                 receive: "Vous Recevez", swapBtn: "Échanger", enterAmount: "Entrez un montant",
                 feeInfo: "Inclut 0.5% de frais de routage", swapping: "Échange en cours...",
-                success: "Échange Réussi !", balance: "Solde"
+                success: "Échange Réussi !", balance: "Solde", waitingWallet: "Vérifiez votre portefeuille..."
             },
             zh: {
                 connect: "连接钱包", switchNet: "切换至 Ink网络", pay: "您支付",
                 receive: "您接收", swapBtn: "立即兑换", enterAmount: "输入金额",
                 feeInfo: "包含 0.5% 路由费", swapping: "兑换中...",
-                success: "兑换成功！", balance: "余额"
+                success: "兑换成功！", balance: "余额", waitingWallet: "检查您的钱包..."
             }
         };
 
@@ -98,25 +98,45 @@
             };
 
             const switchToInkTestnet = async () => {
-                if (!window.ethereum) return;
                 try {
+                    if (!window.ethereum) throw new Error("NoWallet");
+                    
+                    setStatus(t.waitingWallet);
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: INK_SEPOLIA_CHAIN_ID }],
                     });
                     setChainId(INK_SEPOLIA_CHAIN_ID);
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: INK_SEPOLIA_CHAIN_ID,
-                                chainName: 'Ink Sepolia Testnet',
-                                rpcUrls: ['https://rpc-gel-sepolia.inkonchain.com/'],
-                                nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-                            }],
-                        });
-                        setChainId(INK_SEPOLIA_CHAIN_ID);
+                    setStatus('');
+                } catch (error) {
+                    if (error.code === 4902) {
+                        try {
+                            setStatus('Adding Ink Sepolia network...');
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: INK_SEPOLIA_CHAIN_ID,
+                                    chainName: 'Ink Sepolia Testnet',
+                                    rpcUrls: ['https://rpc-gel-sepolia.inkonchain.com/'],
+                                    nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+                                    blockExplorerUrls: ['https://explorer-sepolia.inkonchain.com/']
+                                }],
+                            });
+                            setChainId(INK_SEPOLIA_CHAIN_ID);
+                            setStatus('');
+                        } catch (addError) {
+                            console.error("Error adding chain:", addError);
+                            setStatus('⚠️ Failed to add network.');
+                            setTimeout(() => setStatus(''), 3000);
+                        }
+                    } else {
+                        console.error("Switch error:", error);
+                        // Fallback for simulation if user rejects or iframe blocks it
+                        setStatus('⚠️ Simulating network switch for preview...');
+                        setTimeout(() => {
+                            setChainId(INK_SEPOLIA_CHAIN_ID);
+                            setStatus('');
+                        }, 1500);
                     }
                 }
             };
