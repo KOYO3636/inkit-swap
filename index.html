@@ -3,60 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inkit Swap</title>
-    <!-- Tailwind CSS -->
+    <title>Inkit Multi-Chain Swap</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel compiler -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-[#0d111c] text-white font-sans">
+<body class="bg-[#0d111c] text-white font-sans overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // --- Custom Icons (to replace lucide-react dependencies) ---
-        const Activity = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-        );
-        const Globe = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-        );
-        const AlertCircle = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        );
-        const Wallet = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"></path></svg>
-        );
-        const ArrowDown = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
-        );
-        const RefreshCw = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        );
+        // --- Custom Icons ---
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const icons = {
+                activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>,
+                globe: <React.Fragment><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></React.Fragment>,
+                alert: <React.Fragment><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></React.Fragment>,
+                wallet: <React.Fragment><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"></path></React.Fragment>,
+                arrowDown: <React.Fragment><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></React.Fragment>,
+                refresh: <React.Fragment><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></React.Fragment>,
+                chevronDown: <polyline points="6 9 12 15 18 9"></polyline>
+            };
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
 
-        // --- Translations ---
+        // --- Configuration ---
+        const NETWORKS = {
+            ink: { id: '0xba5ed', name: 'Ink Sepolia', color: 'purple', icon: 'https://raw.githubusercontent.com/ethereum/ethereum-org/main/public/assets/eth-diamond-purple.png' },
+            base: { id: '0x2105', name: 'Base', color: 'blue', icon: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4' },
+            polygon: { id: '0x89', name: 'Polygon', color: 'indigo', icon: 'https://cryptologos.cc/logos/polygon-matic-logo.png' },
+            arbitrum: { id: '0xa4b1', name: 'Arbitrum', color: 'cyan', icon: 'https://cryptologos.cc/logos/arbitrum-arb-logo.png' },
+            optimism: { id: '0xa', name: 'Optimism', color: 'red', icon: 'https://cryptologos.cc/logos/optimism-ethereum-op-logo.png' },
+            bnb: { id: '0x38', name: 'BNB Chain', color: 'yellow', icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png' }
+        };
+
+        const TOKENS = [
+            { symbol: 'ETH', name: 'Ethereum', icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.svg' },
+            { symbol: 'USDT', name: 'Tether', icon: 'https://cryptologos.cc/logos/tether-usdt-logo.svg' },
+            { symbol: 'USDC', name: 'USD Coin', icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg' }
+        ];
+
         const translations = {
             en: {
-                connect: "Connect Wallet", switchNet: "Switch to Ink", pay: "You Pay",
+                connect: "Connect Wallet", switchNet: "Switch to", pay: "You Pay",
                 receive: "You Receive", swapBtn: "Swap Now", enterAmount: "Enter an amount",
                 feeInfo: "Includes 0.5% routing fee", swapping: "Swapping...",
-                success: "Swap Successful!", balance: "Balance", waitingWallet: "Check your wallet..."
+                success: "Swap Successful!", balance: "Balance", waitingWallet: "Check your wallet...",
+                selectToken: "Select Token"
             },
             fr: {
-                connect: "Connecter Wallet", switchNet: "Passer à Ink", pay: "Vous Payez",
+                connect: "Connecter Wallet", switchNet: "Passer à", pay: "Vous Payez",
                 receive: "Vous Recevez", swapBtn: "Échanger", enterAmount: "Entrez un montant",
                 feeInfo: "Inclut 0.5% de frais de routage", swapping: "Échange en cours...",
-                success: "Échange Réussi !", balance: "Solde", waitingWallet: "Vérifiez votre portefeuille..."
+                success: "Échange Réussi !", balance: "Solde", waitingWallet: "Vérifiez votre portefeuille...",
+                selectToken: "Choisir Token"
             },
             zh: {
-                connect: "连接钱包", switchNet: "切换至 Ink网络", pay: "您支付",
+                connect: "连接钱包", switchNet: "切换至", pay: "您支付",
                 receive: "您接收", swapBtn: "立即兑换", enterAmount: "输入金额",
                 feeInfo: "包含 0.5% 路由费", swapping: "兑换中...",
-                success: "兑换成功！", balance: "余额", waitingWallet: "检查您的钱包..."
+                success: "兑换成功！", balance: "余额", waitingWallet: "检查您的钱包...",
+                selectToken: "选择代币"
             }
         };
 
@@ -64,16 +77,20 @@
         function App() {
             const [account, setAccount] = useState('');
             const [chainId, setChainId] = useState('');
-            const [ethAmount, setEthAmount] = useState('');
-            const [tokenAmount, setTokenAmount] = useState('');
-            const [isSwapping, setIsSwapping] = useState(false);
-            const [status, setStatus] = useState('');
+            const [selectedNetKey, setSelectedNetKey] = useState('ink');
+            const [tokenFrom, setTokenFrom] = useState(TOKENS[0]);
+            const [tokenTo, setTokenTo] = useState(TOKENS[1]);
+            const [amountFrom, setAmountFrom] = useState('');
+            const [amountTo, setAmountTo] = useState('');
             const [lang, setLang] = useState('en');
-
-            const INK_SEPOLIA_CHAIN_ID = '0xba5ed'; 
-            const EXCHANGE_RATE = 3500; 
+            const [status, setStatus] = useState('');
+            const [isSwapping, setIsSwapping] = useState(false);
+            const [showNetMenu, setShowNetMenu] = useState(false);
+            const [showTokenMenu, setShowTokenMenu] = useState(null); // 'from' or 'to'
 
             const t = translations[lang];
+            const activeNet = NETWORKS[selectedNetKey];
+            const isCorrectNet = chainId === activeNet.id;
 
             const connectWallet = async () => {
                 try {
@@ -82,245 +99,218 @@
                         setAccount(accounts[0]);
                         const chain = await window.ethereum.request({ method: 'eth_chainId' });
                         setChainId(chain);
-                        setStatus('');
                     } else {
                         throw new Error("NoWallet");
                     }
                 } catch (err) {
-                    console.error("Connection error:", err);
-                    setStatus('⚠️ Preview Mode: No wallet detected. Using test account...');
+                    setStatus('⚠️ Using test account...');
                     setTimeout(() => {
-                        setAccount('0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
-                        setChainId(INK_SEPOLIA_CHAIN_ID);
+                        setAccount('0xf9a6...c760');
+                        setChainId(activeNet.id);
                         setStatus('');
-                    }, 2000);
+                    }, 1500);
                 }
             };
 
-            const switchToInkTestnet = async () => {
+            const switchNetwork = async (netKey) => {
+                const net = NETWORKS[netKey];
+                setSelectedNetKey(netKey);
+                setShowNetMenu(false);
+                
+                if (!account) return;
+
                 try {
-                    if (!window.ethereum) throw new Error("NoWallet");
-                    
-                    setStatus(t.waitingWallet);
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: INK_SEPOLIA_CHAIN_ID }],
+                        params: [{ chainId: net.id }],
                     });
-                    setChainId(INK_SEPOLIA_CHAIN_ID);
-                    setStatus('');
-                } catch (error) {
-                    if (error.code === 4902) {
-                        try {
-                            setStatus('Adding Ink Sepolia network...');
-                            await window.ethereum.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [{
-                                    chainId: INK_SEPOLIA_CHAIN_ID,
-                                    chainName: 'Ink Sepolia Testnet',
-                                    rpcUrls: ['https://rpc-gel-sepolia.inkonchain.com/'],
-                                    nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-                                    blockExplorerUrls: ['https://explorer-sepolia.inkonchain.com/']
-                                }],
-                            });
-                            setChainId(INK_SEPOLIA_CHAIN_ID);
-                            setStatus('');
-                        } catch (addError) {
-                            console.error("Error adding chain:", addError);
-                            setStatus('⚠️ Failed to add network.');
-                            setTimeout(() => setStatus(''), 3000);
-                        }
-                    } else {
-                        console.error("Switch error:", error);
-                        // Fallback for simulation if user rejects or iframe blocks it
-                        setStatus('⚠️ Simulating network switch for preview...');
-                        setTimeout(() => {
-                            setChainId(INK_SEPOLIA_CHAIN_ID);
-                            setStatus('');
-                        }, 1500);
-                    }
+                    setChainId(net.id);
+                } catch (err) {
+                    setStatus(`⚠️ Simulation: Switched to ${net.name}`);
+                    setTimeout(() => {
+                        setChainId(net.id);
+                        setStatus('');
+                    }, 1500);
                 }
             };
 
-            useEffect(() => {
-                if (typeof window.ethereum !== 'undefined') {
-                    window.ethereum.on('accountsChanged', (accounts) => setAccount(accounts[0] || ''));
-                    window.ethereum.on('chainChanged', (chain) => setChainId(chain));
-                }
-            }, []);
-
-            const isInkNetwork = chainId === INK_SEPOLIA_CHAIN_ID;
-
-            const handleEthChange = (e) => {
-                const val = e.target.value;
-                setEthAmount(val);
+            const handleAmountChange = (val) => {
+                setAmountFrom(val);
                 if (val && !isNaN(val)) {
-                    const grossAmount = parseFloat(val) * EXCHANGE_RATE;
-                    const amountAfterRoutingFee = grossAmount * 0.995; 
-                    setTokenAmount(amountAfterRoutingFee.toFixed(2));
+                    // Mock exchange calculation
+                    setAmountTo((parseFloat(val) * 0.995 * (tokenFrom.symbol === 'ETH' ? 3500 : 1)).toFixed(2));
                 } else {
-                    setTokenAmount('');
+                    setAmountTo('');
                 }
             };
 
             const handleSwap = () => {
-                if (!ethAmount || isNaN(ethAmount) || ethAmount <= 0) return;
                 setIsSwapping(true);
                 setStatus(t.swapping);
-                
                 setTimeout(() => {
                     setIsSwapping(false);
                     setStatus(t.success);
-                    setEthAmount('');
-                    setTokenAmount('');
+                    setAmountFrom('');
+                    setAmountTo('');
                     setTimeout(() => setStatus(''), 3000);
-                }, 2500);
+                }, 2000);
             };
 
             return (
-                <div className="min-h-screen flex flex-col items-center pt-24 px-4 relative overflow-hidden">
-                    {/* Background Glows */}
-                    <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-                    <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+                <div className="min-h-screen flex flex-col items-center pt-24 px-4 pb-12 relative overflow-hidden bg-[#0a0d14]">
+                    {/* Background Visuals */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-purple-500/10 to-transparent pointer-events-none"></div>
 
                     {/* Navbar */}
-                    <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-center max-w-6xl mx-auto z-20">
-                        <div className="flex items-center gap-2 font-black text-2xl tracking-tighter">
-                            <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-1.5 rounded-xl">
-                                <Activity className="text-white" size={24} />
+                    <nav className="fixed top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-center max-w-7xl mx-auto z-40 backdrop-blur-md">
+                        <div className="flex items-center gap-2 font-black text-2xl tracking-tighter cursor-pointer">
+                            <div className="bg-gradient-to-br from-purple-500 to-blue-500 p-1.5 rounded-xl shadow-lg shadow-purple-500/20">
+                                <Icon name="activity" className="text-white" size={24} />
                             </div>
                             <span>Inkit</span>
                         </div>
-                        
-                        <div className="flex items-center gap-2 sm:gap-4">
-                            <div className="relative flex items-center bg-[#131a2a] border border-slate-800 rounded-full px-3 py-2 cursor-pointer hover:bg-[#1c2438] transition-colors">
-                                <Globe size={16} className="text-slate-400 mr-2" />
-                                <select 
-                                    value={lang} 
-                                    onChange={(e) => setLang(e.target.value)}
-                                    className="bg-transparent text-sm font-medium outline-none cursor-pointer appearance-none pr-4 text-slate-200"
-                                >
-                                    <option value="en">English</option>
-                                    <option value="fr">Français</option>
-                                    <option value="zh">中文</option>
+
+                        <div className="flex items-center gap-2">
+                            {/* Lang Dropdown */}
+                            <div className="hidden sm:flex items-center bg-[#131a2a] border border-slate-800 rounded-full px-3 py-2">
+                                <Icon name="globe" size={16} className="text-slate-400 mr-2" />
+                                <select value={lang} onChange={(e) => setLang(e.target.value)} className="bg-transparent text-sm font-medium outline-none text-slate-200">
+                                    <option value="en">EN</option><option value="fr">FR</option><option value="zh">ZH</option>
                                 </select>
                             </div>
 
-                            {account ? (
-                                <div className="flex gap-2 items-center">
-                                    {!isInkNetwork && (
-                                        <button onClick={switchToInkTestnet} className="hidden sm:flex bg-red-500/10 text-red-400 px-4 py-2 rounded-full text-sm font-semibold border border-red-500/20 items-center gap-2 hover:bg-red-500/20 transition-colors">
-                                            <AlertCircle size={16} /> {t.switchNet}
-                                        </button>
-                                    )}
-                                    <div className="bg-[#131a2a] px-4 py-2 rounded-full text-sm font-medium border border-slate-800 flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${isInkNetwork ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                                        {account.slice(0, 6)}...{account.slice(-4)}
-                                    </div>
-                                </div>
-                            ) : (
-                                <button onClick={connectWallet} className="bg-purple-600 hover:bg-purple-700 px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-purple-600/20 flex items-center gap-2">
-                                    <Wallet size={16} className="hidden sm:block" />
-                                    {t.connect}
+                            {/* Network Switcher */}
+                            <div className="relative">
+                                <button onClick={() => setShowNetMenu(!showNetMenu)} className="bg-[#131a2a] hover:bg-[#1c2438] border border-slate-800 rounded-full px-4 py-2 flex items-center gap-2 transition-all">
+                                    <img src={activeNet.icon} className="w-5 h-5 rounded-full object-contain" />
+                                    <span className="hidden md:block text-sm font-bold">{activeNet.name}</span>
+                                    <Icon name="chevronDown" size={14} className="text-slate-500" />
                                 </button>
-                            )}
-                        </div>
-                    </div>
+                                
+                                {showNetMenu && (
+                                    <div className="absolute top-12 right-0 w-48 bg-[#1a2133] border border-slate-700 rounded-2xl p-2 shadow-2xl z-50">
+                                        {Object.entries(NETWORKS).map(([key, net]) => (
+                                            <div key={key} onClick={() => switchNetwork(key)} className="flex items-center gap-3 p-3 hover:bg-slate-700/50 rounded-xl cursor-pointer transition-colors">
+                                                <img src={net.icon} className="w-5 h-5 rounded-full object-contain" />
+                                                <span className="text-sm font-medium">{net.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
-                    {/* Main Swap Card */}
-                    <div className="w-full max-w-[480px] bg-[#131a2a] border border-slate-800 rounded-[32px] p-2 mt-4 shadow-2xl relative z-10">
+                            {/* Wallet Button */}
+                            <button onClick={connectWallet} className="bg-purple-600 hover:bg-purple-700 px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-500/20 transition-all active:scale-95">
+                                <Icon name="wallet" size={16} />
+                                <span>{account ? `${account.slice(0, 6)}...` : t.connect}</span>
+                            </button>
+                        </div>
+                    </nav>
+
+                    {/* Swap Card */}
+                    <div className="w-full max-w-[460px] bg-[#131a2a] border border-slate-800 rounded-[32px] p-2 shadow-2xl z-10">
+                        
+                        {/* Input Area 1 */}
                         <div className="bg-[#0d111c] rounded-[24px] p-5 border border-transparent hover:border-slate-800 transition-colors">
-                            <div className="flex justify-between text-sm text-slate-400 mb-3 font-medium">
+                            <div className="flex justify-between text-xs text-slate-500 mb-3 font-bold uppercase tracking-widest">
                                 <span>{t.pay}</span>
                                 <span>{t.balance}: 0.00</span>
                             </div>
                             <div className="flex justify-between items-center gap-4">
-                                <input 
-                                    type="number" 
-                                    placeholder="0"
-                                    value={ethAmount}
-                                    onChange={handleEthChange}
-                                    className="bg-transparent text-4xl font-medium w-full outline-none placeholder:text-slate-700 text-white"
-                                />
-                                <div className="flex items-center gap-2 bg-[#1c2438] hover:bg-[#252f4a] cursor-pointer px-4 py-2 rounded-full shrink-0 transition-colors">
-                                    <img src="https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=029" alt="ETH" className="w-6 h-6" />
-                                    <span className="font-semibold text-lg">ETH</span>
-                                </div>
+                                <input type="number" placeholder="0" value={amountFrom} onChange={(e) => handleAmountChange(e.target.value)} className="bg-transparent text-4xl font-medium w-full outline-none placeholder:text-slate-800" />
+                                <button onClick={() => setShowTokenMenu('from')} className="flex items-center gap-2 bg-[#1c2438] hover:bg-[#252f4a] p-2 pr-4 rounded-full transition-colors shrink-0">
+                                    <img src={tokenFrom.icon} className="w-6 h-6 rounded-full" />
+                                    <span className="font-bold">{tokenFrom.symbol}</span>
+                                    <Icon name="chevronDown" size={14} className="text-slate-500" />
+                                </button>
                             </div>
                         </div>
 
-                        <div className="flex justify-center -my-4 relative z-10">
+                        {/* Middle Arrow */}
+                        <div className="flex justify-center -my-3 relative z-20">
                             <div className="bg-[#131a2a] p-1 rounded-xl">
-                                <div className="bg-[#1c2438] p-2 rounded-xl border border-slate-800 text-slate-400 hover:text-purple-400 cursor-pointer transition-colors">
-                                    <ArrowDown size={20} />
-                                </div>
+                                <button className="bg-[#1c2438] p-2 rounded-xl border border-slate-800 text-slate-400 hover:text-purple-400">
+                                    <Icon name="arrowDown" size={18} />
+                                </button>
                             </div>
                         </div>
 
+                        {/* Input Area 2 */}
                         <div className="bg-[#0d111c] rounded-[24px] p-5 border border-transparent hover:border-slate-800 transition-colors">
-                            <div className="flex justify-between text-sm text-slate-400 mb-3 font-medium">
+                            <div className="flex justify-between text-xs text-slate-500 mb-3 font-bold uppercase tracking-widest">
                                 <span>{t.receive}</span>
                                 <span>{t.balance}: 0.00</span>
                             </div>
                             <div className="flex justify-between items-center gap-4">
-                                <input 
-                                    type="number" 
-                                    placeholder="0"
-                                    value={tokenAmount}
-                                    readOnly
-                                    className="bg-transparent text-4xl font-medium w-full outline-none text-slate-300 placeholder:text-slate-700"
-                                />
-                                <div className="flex items-center gap-2 bg-[#1c2438] hover:bg-[#252f4a] cursor-pointer px-4 py-2 rounded-full shrink-0 transition-colors">
-                                    <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center shadow-inner">
-                                        <div className="w-3 h-3 bg-white rounded-full"></div>
-                                    </div>
-                                    <span className="font-semibold text-lg">INK</span>
-                                </div>
+                                <input type="number" placeholder="0" value={amountTo} readOnly className="bg-transparent text-4xl font-medium w-full outline-none text-slate-300" />
+                                <button onClick={() => setShowTokenMenu('to')} className="flex items-center gap-2 bg-[#1c2438] hover:bg-[#252f4a] p-2 pr-4 rounded-full transition-colors shrink-0">
+                                    <img src={tokenTo.icon} className="w-6 h-6 rounded-full" />
+                                    <span className="font-bold">{tokenTo.symbol}</span>
+                                    <Icon name="chevronDown" size={14} className="text-slate-500" />
+                                </button>
                             </div>
                         </div>
 
+                        {/* Status Message */}
                         {status && (
                             <div className="mt-4 px-4 py-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-sm font-medium text-purple-300 text-center flex justify-center items-center gap-2">
-                                {isSwapping && <RefreshCw className={isSwapping ? "animate-spin" : ""} size={16} />}
+                                {isSwapping && <Icon name="refresh" size={16} className="animate-spin" />}
                                 {status}
                             </div>
                         )}
 
+                        {/* Bottom Action */}
                         <div className="p-2 mt-2">
                             {!account ? (
-                                <button 
-                                    onClick={connectWallet}
-                                    className="w-full bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 font-bold py-4 rounded-[20px] transition-all text-lg"
-                                >
-                                    {t.connect}
-                                </button>
-                            ) : !isInkNetwork ? (
-                                <button 
-                                    onClick={switchToInkTestnet}
-                                    className="w-full bg-red-500/10 text-red-400 hover:bg-red-500/20 font-bold py-4 rounded-[20px] transition-all text-lg"
-                                >
-                                    {t.switchNet}
-                                </button>
-                            ) : !ethAmount || ethAmount <= 0 ? (
-                                <button disabled className="w-full bg-[#1c2438] text-slate-500 font-bold py-4 rounded-[20px] cursor-not-allowed text-lg">
-                                    {t.enterAmount}
-                                </button>
+                                <button onClick={connectWallet} className="w-full bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 font-bold py-4 rounded-[20px] transition-all text-lg">{t.connect}</button>
+                            ) : !isCorrectNet ? (
+                                <button onClick={() => switchNetwork(selectedNetKey)} className="w-full bg-red-500/10 text-red-400 hover:bg-red-500/20 font-bold py-4 rounded-[20px] transition-all text-lg">{t.switchNet} {activeNet.name}</button>
+                            ) : !amountFrom ? (
+                                <button disabled className="w-full bg-[#1c2438] text-slate-600 font-bold py-4 rounded-[20px] text-lg">{t.enterAmount}</button>
                             ) : (
-                                <button 
-                                    onClick={handleSwap}
-                                    disabled={isSwapping}
-                                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-[20px] shadow-lg shadow-purple-600/20 transition-all active:scale-[0.98] flex justify-center items-center gap-2 text-lg"
-                                >
+                                <button onClick={handleSwap} disabled={isSwapping} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-[20px] shadow-lg shadow-purple-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-lg">
                                     {isSwapping ? t.swapping : t.swapBtn}
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    <div className="mt-6 text-center">
-                        <p className="text-slate-500 text-sm font-medium bg-[#131a2a]/50 px-4 py-2 rounded-full border border-slate-800/50 inline-block">
-                            ⚡ {t.feeInfo}
-                        </p>
+                    <div className="mt-8 text-slate-500 text-sm font-medium bg-[#131a2a]/40 px-6 py-3 rounded-full border border-slate-800/50">
+                        ⚡ {t.feeInfo}
                     </div>
+
+                    {/* Token Selector Modal */}
+                    {showTokenMenu && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowTokenMenu(null)}></div>
+                            <div className="relative w-full max-w-sm bg-[#131a2a] border border-slate-800 rounded-[32px] p-6 shadow-2xl">
+                                <h3 className="text-xl font-bold mb-6">{t.selectToken}</h3>
+                                <div className="space-y-2">
+                                    {TOKENS.map(token => (
+                                        <div 
+                                            key={token.symbol} 
+                                            onClick={() => {
+                                                if (showTokenMenu === 'from') setTokenFrom(token);
+                                                else setTokenTo(token);
+                                                setShowTokenMenu(null);
+                                            }}
+                                            className="flex items-center justify-between p-4 hover:bg-slate-800 rounded-2xl cursor-pointer transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <img src={token.icon} className="w-8 h-8 rounded-full" />
+                                                <div>
+                                                    <p className="font-bold">{token.symbol}</p>
+                                                    <p className="text-xs text-slate-500">{token.name}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-slate-600 font-medium">Balance: 0.0</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             );
         }
