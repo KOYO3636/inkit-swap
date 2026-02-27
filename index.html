@@ -39,12 +39,12 @@
 
         // --- Config ---
         const NETWORKS = {
-            ink: { id: '0x39', name: 'Ink', icon: 'https://raw.githubusercontent.com/ethereum/ethereum-org/main/public/assets/eth-diamond-purple.png' },
-            base: { id: '0x2105', name: 'Base', icon: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4' },
-            polygon: { id: '0x89', name: 'Polygon', icon: 'https://cryptologos.cc/logos/polygon-matic-logo.png' },
-            arbitrum: { id: '0xa4b1', name: 'Arbitrum', icon: 'https://cryptologos.cc/logos/arbitrum-arb-logo.png' },
-            optimism: { id: '0xa', name: 'Optimism', icon: 'https://cryptologos.cc/logos/optimism-ethereum-op-logo.png' },
-            bnb: { id: '0x38', name: 'BNB Chain', icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png' }
+            ink: { id: '0x39', name: 'Ink', rpc: 'https://rpc-gel.inkonchain.com', icon: 'https://raw.githubusercontent.com/ethereum/ethereum-org/main/public/assets/eth-diamond-purple.png' },
+            base: { id: '0x2105', name: 'Base', rpc: 'https://mainnet.base.org', icon: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4' },
+            polygon: { id: '0x89', name: 'Polygon', rpc: 'https://polygon-rpc.com', icon: 'https://cryptologos.cc/logos/polygon-matic-logo.png' },
+            arbitrum: { id: '0xa4b1', name: 'Arbitrum', rpc: 'https://arb1.arbitrum.io/rpc', icon: 'https://cryptologos.cc/logos/arbitrum-arb-logo.png' },
+            optimism: { id: '0xa', name: 'Optimism', rpc: 'https://mainnet.optimism.io', icon: 'https://cryptologos.cc/logos/optimism-ethereum-op-logo.png' },
+            bnb: { id: '0x38', name: 'BNB Chain', rpc: 'https://bsc-dataseed.binance.org', icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png' }
         };
 
         const TOKEN_ADDRESSES = {
@@ -103,23 +103,21 @@
             const srcNet = NETWORKS[srcNetKey];
             const destNet = mode === 'swap' ? srcNet : NETWORKS[destNetKey];
             
-            // Normalize chainId for comparison
-            const isCorrectNet = (id, netId) => {
-                if (!id) return false;
-                const normalizedId = id.startsWith('0x') ? id.toLowerCase() : '0x' + parseInt(id).toString(16).toLowerCase();
-                return normalizedId === netId.toLowerCase();
+            const normalizeHex = (hex) => {
+                if (!hex) return "";
+                const h = hex.toString();
+                return h.startsWith('0x') ? h.toLowerCase() : '0x' + parseInt(h).toString(16).toLowerCase();
             };
 
+            const isCorrectNet = normalizeHex(chainId) === srcNet.id.toLowerCase();
+
             const fetchBalance = useCallback(async (token, netKey, user) => {
-                if (!window.ethereum || !user) return '0.00';
+                if (!user) return '0.00';
+                
                 try {
-                    const provider = new ethers.providers.Web3Provider(window.ethereum);
                     const net = NETWORKS[netKey];
-                    
-                    // Check if wallet is on the right network
-                    const network = await provider.getNetwork();
-                    const currentHex = '0x' + network.chainId.toString(16).toLowerCase();
-                    if (currentHex !== net.id.toLowerCase()) return '0.00';
+                    // Try to use Public RPC if Wallet is not on the right network or if window.ethereum fails
+                    const provider = new ethers.providers.JsonRpcProvider(net.rpc);
 
                     if (token.symbol === 'ETH') {
                         const b = await provider.getBalance(user);
@@ -132,27 +130,34 @@
                         const dec = (netKey === 'polygon' || netKey === 'bnb' || token.symbol === 'ANITA') ? 18 : 6;
                         return parseFloat(ethers.utils.formatUnits(b, dec)).toFixed(2);
                     }
-                } catch (e) { return '0.00'; }
+                } catch (e) {
+                    console.error("Balance Error:", e);
+                    return '0.00'; 
+                }
             }, []);
 
             const updateBalances = useCallback(async () => {
                 if (!account) return;
                 setLoadingBal(true);
-                const b1 = await fetchBalance(tokenFrom, srcNetKey, account);
-                setBalFrom(b1);
-                if (mode === 'swap') {
-                    const b2 = await fetchBalance(tokenTo, srcNetKey, account);
-                    setBalTo(b2);
-                } else {
-                    setBalTo('0.00');
+                try {
+                    const b1 = await fetchBalance(tokenFrom, srcNetKey, account);
+                    setBalFrom(b1);
+                    if (mode === 'swap') {
+                        const b2 = await fetchBalance(tokenTo, srcNetKey, account);
+                        setBalTo(b2);
+                    } else {
+                        const b2 = await fetchBalance(tokenFrom, destNetKey, account);
+                        setBalTo(b2);
+                    }
+                } catch (err) {
+                    console.error(err);
+                } finally {
+                    setLoadingBal(false);
                 }
-                setLoadingBal(false);
-            }, [account, tokenFrom, tokenTo, srcNetKey, mode, fetchBalance]);
+            }, [account, tokenFrom, tokenTo, srcNetKey, destNetKey, mode, fetchBalance]);
 
             useEffect(() => {
                 updateBalances();
-                const interval = setInterval(updateBalances, 10000);
-                return () => clearInterval(interval);
             }, [updateBalances]);
 
             const connectWallet = async () => {
@@ -161,8 +166,9 @@
                     const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
                     setAccount(accs[0]);
                     const id = await window.ethereum.request({ method: 'eth_chainId' });
-                    setChainId(id);
+                    setChainId(normalizeHex(id));
                     setStatus('');
+                    updateBalances();
                 } catch (e) { setStatus('⚠️ Connection failed.'); }
             };
 
@@ -172,9 +178,15 @@
                     setSrcNetKey(key); setShowSrcNet(false);
                     if (account && window.ethereum) {
                         try {
-                            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: net.id }] });
+                            const currentId = await window.ethereum.request({ method: 'eth_chainId' });
+                            if (normalizeHex(currentId) !== net.id.toLowerCase()) {
+                                await window.ethereum.request({ 
+                                    method: 'wallet_switchEthereumChain', 
+                                    params: [{ chainId: net.id }] 
+                                });
+                            }
                         } catch (e) {
-                            if (e.code === 4902) setStatus('Please add network manually.');
+                            if (e.code === 4902) setStatus('Add network to wallet.');
                         }
                     }
                 } else { setDestNetKey(key); setShowDestNet(false); }
@@ -191,9 +203,12 @@
             useEffect(() => {
                 if (window.ethereum) {
                     window.ethereum.on('accountsChanged', (a) => setAccount(a[0] || ''));
-                    window.ethereum.on('chainChanged', (id) => setChainId(id));
+                    window.ethereum.on('chainChanged', (id) => {
+                        setChainId(normalizeHex(id));
+                        updateBalances();
+                    });
                 }
-            }, []);
+            }, [updateBalances]);
 
             return (
                 <div className="min-h-screen flex flex-col items-center pt-20 px-4 pb-10 bg-[#0a0d14]">
@@ -214,7 +229,7 @@
                                     <option value="en">EN</option><option value="fr">FR</option><option value="zh">ZH</option>
                                 </select>
                             </div>
-                            <button onClick={connectWallet} className="bg-[#131a2a] border border-slate-800 px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#1c2438] transition-colors">
+                            <button onClick={connectWallet} className="bg-[#131a2a] border border-slate-800 px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#1c2438] transition-colors shadow-sm">
                                 <Icon name="wallet" size={16} className="text-purple-400" />
                                 {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : t.connect}
                             </button>
@@ -223,10 +238,10 @@
 
                     <div className="w-full max-w-[480px] z-10">
                         <div className="flex bg-[#131a2a] p-1 rounded-2xl mb-4 border border-slate-800 shadow-xl">
-                            <button onClick={() => setMode('swap')} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${mode === 'swap' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
+                            <button onClick={() => setMode('swap')} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${mode === 'swap' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
                                 <Icon name="refresh" size={16} /> {t.swap}
                             </button>
-                            <button onClick={() => setMode('bridge')} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${mode === 'bridge' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
+                            <button onClick={() => setMode('bridge')} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${mode === 'bridge' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
                                 <Icon name="bridge" size={16} /> {t.bridge}
                             </button>
                         </div>
@@ -236,9 +251,14 @@
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{t.from}</span>
-                                        <span className="text-[10px] text-purple-400 font-bold tracking-tight">
-                                            {t.balance}: {loadingBal ? '...' : balFrom}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[11px] text-purple-400 font-bold tracking-tight">
+                                                {t.balance}: {loadingBal ? '...' : balFrom}
+                                            </span>
+                                            <button onClick={updateBalances} className={`text-slate-600 hover:text-purple-400 transition-all ${loadingBal ? 'animate-spin' : ''}`}>
+                                                <Icon name="refresh" size={10} />
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="relative">
                                         <button onClick={() => setShowSrcNet(!showSrcNet)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-1.5 rounded-full border border-slate-700 hover:border-purple-500 transition-all">
@@ -259,7 +279,7 @@
                                 </div>
                                 <div className="flex justify-between items-center gap-4">
                                     <input type="number" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-transparent text-4xl font-medium w-full outline-none placeholder:text-slate-800" />
-                                    <button onClick={() => setShowTokenFrom(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700 shadow-sm">
+                                    <button onClick={() => setShowTokenFrom(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700 shadow-sm transition-all hover:bg-[#252f4a]">
                                         <img src={tokenFrom.icon} className="w-6 h-6 rounded-full" /> 
                                         <span>{tokenFrom.symbol}</span>
                                         <Icon name="chevronDown" size={14} className="text-slate-500" />
@@ -269,7 +289,7 @@
 
                             <div className="flex justify-center -my-3 relative z-20">
                                 <div className="bg-[#131a2a] p-1 rounded-xl">
-                                    <button onClick={handleSwitchTokens} className="bg-[#1c2438] p-2 rounded-xl border border-slate-800 text-purple-400 shadow-lg hover:text-white transition-all active:scale-90">
+                                    <button onClick={handleSwitchTokens} className="bg-[#1c2438] p-2 rounded-xl border border-slate-800 text-purple-400 shadow-lg hover:text-white transition-all active:scale-90 active:rotate-180 duration-300">
                                         {mode === 'swap' ? <Icon name="arrowDown" size={20} /> : <Icon name="bridge" size={20} />}
                                     </button>
                                 </div>
@@ -279,12 +299,12 @@
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{t.to}</span>
-                                        <span className="text-[10px] text-purple-400 font-bold tracking-tight">
+                                        <span className="text-[11px] text-purple-400 font-bold tracking-tight">
                                             {t.balance}: {loadingBal ? '...' : balTo}
                                         </span>
                                     </div>
                                     <div className="relative">
-                                        <button disabled={mode === 'swap'} onClick={() => setShowDestNet(!showDestNet)} className={`flex items-center gap-2 bg-[#1c2438] px-3 py-1.5 rounded-full border border-slate-700 ${mode === 'swap' ? 'opacity-70' : 'hover:border-purple-500'}`}>
+                                        <button disabled={mode === 'swap'} onClick={() => setShowDestNet(!showDestNet)} className={`flex items-center gap-2 bg-[#1c2438] px-3 py-1.5 rounded-full border border-slate-700 transition-all ${mode === 'swap' ? 'opacity-70' : 'hover:border-purple-500'}`}>
                                             <img src={destNet.icon} className="w-4 h-4 rounded-full" />
                                             <span className="text-xs font-bold">{destNet.name}</span>
                                             {mode === 'bridge' && <Icon name="chevronDown" size={12} />}
@@ -302,7 +322,7 @@
                                 </div>
                                 <div className="flex justify-between items-center gap-4">
                                     <div className="text-4xl font-medium text-slate-400 truncate">{amount ? (amount * 0.995).toFixed(2) : "0"}</div>
-                                    <button onClick={() => setShowTokenTo(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700 shadow-sm">
+                                    <button onClick={() => setShowTokenTo(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700 shadow-sm transition-all hover:bg-[#252f4a]">
                                         <img src={tokenTo.icon} className="w-6 h-6 rounded-full" /> 
                                         <span>{tokenTo.symbol}</span>
                                         <Icon name="chevronDown" size={14} className="text-slate-500" />
@@ -311,11 +331,11 @@
                             </div>
 
                             <div className="p-2 mt-2">
-                                {status && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-xs text-red-400">{status}</div>}
+                                {status && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-[11px] text-red-400 leading-tight">{status}</div>}
                                 {!account ? (
                                     <button onClick={connectWallet} className="w-full bg-purple-600 py-4 rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-purple-600/20">{t.connect}</button>
-                                ) : !isCorrectNet(chainId, srcNet.id) ? (
-                                    <button onClick={() => switchNet(srcNetKey, true)} className="w-full bg-red-500/10 text-red-400 py-4 rounded-2xl font-bold border border-red-500/20 flex justify-center items-center gap-2">
+                                ) : (normalizeHex(chainId) !== srcNet.id.toLowerCase()) ? (
+                                    <button onClick={() => switchNet(srcNetKey, true)} className="w-full bg-red-500/10 text-red-400 py-4 rounded-2xl font-bold border border-red-500/20 flex justify-center items-center gap-2 hover:bg-red-500/20 transition-all">
                                         <Icon name="alert" size={20} /> {t.switchNet} {srcNet.name}
                                     </button>
                                 ) : !amount ? (
