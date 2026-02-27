@@ -8,14 +8,14 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Ethers.js for real blockchain data -->
+    <!-- Ethers.js -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
 </head>
 <body class="bg-[#0a0d14] text-white font-sans overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect, useCallback, useRef } = React;
 
         // --- Custom Icons ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -37,7 +37,7 @@
             );
         };
 
-        // --- Network & Token Config ---
+        // --- Config ---
         const NETWORKS = {
             ink: { id: '0x39', name: 'Ink', icon: 'https://raw.githubusercontent.com/ethereum/ethereum-org/main/public/assets/eth-diamond-purple.png' },
             base: { id: '0x2105', name: 'Base', icon: 'https://avatars.githubusercontent.com/u/108554348?s=200&v=4' },
@@ -47,7 +47,6 @@
             bnb: { id: '0x38', name: 'BNB Chain', icon: 'https://cryptologos.cc/logos/bnb-bnb-logo.png' }
         };
 
-        // ERC20 Addresses
         const TOKEN_ADDRESSES = {
             USDT: {
                 base: '0x50c5725949A6F0c72E6C45641f240226D82ce852',
@@ -63,56 +62,37 @@
                 optimism: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
                 bnb: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'
             },
-            ANITA: {
-                ink: '0x0606FC632ee812bA970af72F8489baAa443C4B98'
-            }
+            ANITA: { ink: '0x0606FC632ee812bA970af72F8489baAa443C4B98' }
         };
 
         const TOKENS = [
-            { symbol: 'ETH', name: 'Ethereum', icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.svg', decimals: 18 },
-            { symbol: 'USDT', name: 'Tether', icon: 'https://cryptologos.cc/logos/tether-usdt-logo.svg', decimals: 6 },
-            { symbol: 'USDC', name: 'USD Coin', icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg', decimals: 6 },
-            { symbol: 'ANITA', name: 'Anita Token', icon: 'https://api.dicebear.com/7.x/initials/svg?seed=ANITA&backgroundColor=b624ff', decimals: 18 }
+            { symbol: 'ETH', name: 'Ethereum', icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.svg' },
+            { symbol: 'USDT', name: 'Tether', icon: 'https://cryptologos.cc/logos/tether-usdt-logo.svg' },
+            { symbol: 'USDC', name: 'USD Coin', icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg' },
+            { symbol: 'ANITA', name: 'Anita', icon: 'https://api.dicebear.com/7.x/initials/svg?seed=ANITA&backgroundColor=b624ff' }
         ];
 
         const translations = {
-            en: {
-                swap: "Swap", bridge: "Bridge", connect: "Connect Wallet",
-                from: "From", to: "To", pay: "You Pay", receive: "You Receive",
-                btnSwap: "Swap Now", btnBridge: "Bridge Assets",
-                fee: "Fee: 0.5%", waiting: "Processing...", success: "Success!",
-                selectNet: "Select Network", selectToken: "Select Token", loading: "..."
-            },
-            fr: {
-                swap: "Échange", bridge: "Pont", connect: "Connecter Wallet",
-                from: "De", to: "À", pay: "Vous Payez", receive: "Vous Recevez",
-                btnSwap: "Échanger", btnBridge: "Transférer",
-                fee: "Frais: 0.5%", waiting: "En cours...", success: "Réussi !",
-                selectNet: "Choisir Réseau", selectToken: "Choisir Token", loading: "..."
-            },
-            zh: {
-                swap: "兑换", bridge: "跨链桥", connect: "连接钱包",
-                from: "从", to: "至", pay: "您支付", receive: "您接收",
-                btnSwap: "立即兑换", btnBridge: "开始跨链",
-                fee: "费用: 0.5%", waiting: "处理中...", success: "成功!",
-                selectNet: "选择网络", selectToken: "选择代币", loading: "..."
-            }
+            en: { swap: "Swap", bridge: "Bridge", connect: "Connect Wallet", from: "From", to: "To", pay: "Pay", receive: "Receive", btnSwap: "Swap Now", btnBridge: "Bridge Assets", fee: "Fee: 0.5%", waiting: "Processing...", success: "Success!", selectNet: "Select Network", selectToken: "Select Token", balance: "Balance" },
+            fr: { swap: "Échange", bridge: "Pont", connect: "Connecter Wallet", from: "De", to: "À", pay: "Payer", receive: "Recevoir", btnSwap: "Échanger", btnBridge: "Transférer", fee: "Frais: 0.5%", waiting: "En cours...", success: "Réussi !", selectNet: "Choisir Réseau", selectToken: "Choisir Token", balance: "Solde" },
+            zh: { swap: "兑换", bridge: "跨链桥", connect: "连接钱包", from: "从", to: "至", pay: "支付", receive: "接收", btnSwap: "立即兑换", btnBridge: "开始跨链", fee: "费用: 0.5%", waiting: "处理中...", success: "成功!", selectNet: "选择网络", selectToken: "选择代币", balance: "余额" }
         };
 
         function App() {
-            const [mode, setMode] = useState('swap'); 
+            const [mode, setMode] = useState('swap');
             const [lang, setLang] = useState('en');
             const [account, setAccount] = useState('');
             const [chainId, setChainId] = useState('');
-            const [srcNetKey, setSrcNetKey] = useState('base'); 
+            const [srcNetKey, setSrcNetKey] = useState('base');
             const [destNetKey, setDestNetKey] = useState('ink');
             const [tokenFrom, setTokenFrom] = useState(TOKENS[0]);
-            const [tokenTo, setTokenTo] = useState(TOKENS[3]); // Default to ANITA for demo
+            const [tokenTo, setTokenTo] = useState(TOKENS[1]);
             const [amount, setAmount] = useState('');
             const [status, setStatus] = useState('');
             const [isLoading, setIsLoading] = useState(false);
-            const [balanceFrom, setBalanceFrom] = useState('0.00');
-            const [balanceTo, setBalanceTo] = useState('0.00');
+            const [balFrom, setBalFrom] = useState('0.00');
+            const [balTo, setBalTo] = useState('0.00');
+            const [loadingBal, setLoadingBal] = useState(false);
 
             const [showSrcNet, setShowSrcNet] = useState(false);
             const [showDestNet, setShowDestNet] = useState(false);
@@ -122,63 +102,68 @@
             const t = translations[lang];
             const srcNet = NETWORKS[srcNetKey];
             const destNet = mode === 'swap' ? srcNet : NETWORKS[destNetKey];
-            const isCorrectNet = chainId.toLowerCase() === srcNet.id.toLowerCase();
+            
+            // Normalize chainId for comparison
+            const isCorrectNet = (id, netId) => {
+                if (!id) return false;
+                const normalizedId = id.startsWith('0x') ? id.toLowerCase() : '0x' + parseInt(id).toString(16).toLowerCase();
+                return normalizedId === netId.toLowerCase();
+            };
 
-            // --- Real Balance Fetching Logic ---
-            const getBalance = useCallback(async (token, netKey, userAddress) => {
-                if (!window.ethereum || !userAddress) return '0.00';
-                
+            const fetchBalance = useCallback(async (token, netKey, user) => {
+                if (!window.ethereum || !user) return '0.00';
                 try {
                     const provider = new ethers.providers.Web3Provider(window.ethereum);
                     const net = NETWORKS[netKey];
                     
-                    const currentChainId = await provider.getNetwork().then(n => n.chainId);
-                    if ('0x' + currentChainId.toString(16).toLowerCase() !== net.id.toLowerCase()) return '0.00';
+                    // Check if wallet is on the right network
+                    const network = await provider.getNetwork();
+                    const currentHex = '0x' + network.chainId.toString(16).toLowerCase();
+                    if (currentHex !== net.id.toLowerCase()) return '0.00';
 
                     if (token.symbol === 'ETH') {
-                        const bal = await provider.getBalance(userAddress);
-                        return parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+                        const b = await provider.getBalance(user);
+                        return parseFloat(ethers.utils.formatEther(b)).toFixed(4);
                     } else {
-                        const address = TOKEN_ADDRESSES[token.symbol]?.[netKey];
-                        if (!address) return '0.00';
-                        
-                        const abi = ["function balanceOf(address owner) view returns (uint256)"];
-                        const contract = new ethers.Contract(address, abi, provider);
-                        const bal = await contract.balanceOf(userAddress);
-                        
-                        const decimals = (netKey === 'polygon' || netKey === 'bnb' || token.symbol === 'ANITA') ? 18 : 6;
-                        return parseFloat(ethers.utils.formatUnits(bal, decimals)).toFixed(2);
+                        const addr = TOKEN_ADDRESSES[token.symbol]?.[netKey];
+                        if (!addr) return '0.00';
+                        const contract = new ethers.Contract(addr, ["function balanceOf(address) view returns (uint256)"], provider);
+                        const b = await contract.balanceOf(user);
+                        const dec = (netKey === 'polygon' || netKey === 'bnb' || token.symbol === 'ANITA') ? 18 : 6;
+                        return parseFloat(ethers.utils.formatUnits(b, dec)).toFixed(2);
                     }
-                } catch (e) {
-                    return '0.00';
-                }
+                } catch (e) { return '0.00'; }
             }, []);
 
-            useEffect(() => {
-                if (account && isCorrectNet) {
-                    getBalance(tokenFrom, srcNetKey, account).then(setBalanceFrom);
-                    if (mode === 'swap') {
-                        getBalance(tokenTo, srcNetKey, account).then(setBalanceTo);
-                    } else {
-                        setBalanceTo('0.00');
-                    }
+            const updateBalances = useCallback(async () => {
+                if (!account) return;
+                setLoadingBal(true);
+                const b1 = await fetchBalance(tokenFrom, srcNetKey, account);
+                setBalFrom(b1);
+                if (mode === 'swap') {
+                    const b2 = await fetchBalance(tokenTo, srcNetKey, account);
+                    setBalTo(b2);
                 } else {
-                    setBalanceFrom('0.00');
-                    setBalanceTo('0.00');
+                    setBalTo('0.00');
                 }
-            }, [account, chainId, srcNetKey, tokenFrom, tokenTo, mode, isCorrectNet, getBalance]);
+                setLoadingBal(false);
+            }, [account, tokenFrom, tokenTo, srcNetKey, mode, fetchBalance]);
+
+            useEffect(() => {
+                updateBalances();
+                const interval = setInterval(updateBalances, 10000);
+                return () => clearInterval(interval);
+            }, [updateBalances]);
 
             const connectWallet = async () => {
+                if (!window.ethereum) return setStatus('⚠️ No wallet found.');
                 try {
-                    if (window.ethereum) {
-                        const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                        setAccount(accs[0]);
-                        const id = await window.ethereum.request({ method: 'eth_chainId' });
-                        setChainId(id);
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
+                    const accs = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    setAccount(accs[0]);
+                    const id = await window.ethereum.request({ method: 'eth_chainId' });
+                    setChainId(id);
+                    setStatus('');
+                } catch (e) { setStatus('⚠️ Connection failed.'); }
             };
 
             const switchNet = async (key, isSource) => {
@@ -189,33 +174,23 @@
                         try {
                             await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: net.id }] });
                         } catch (e) {
-                            if (e.code === 4902) alert("Please add this network to your wallet.");
+                            if (e.code === 4902) setStatus('Please add network manually.');
                         }
                     }
-                } else {
-                    setDestNetKey(key); setShowDestNet(false);
-                }
+                } else { setDestNetKey(key); setShowDestNet(false); }
             };
 
-            const handleSwitch = () => {
+            const handleSwitchTokens = () => {
                 if (mode === 'swap') {
-                    const temp = tokenFrom; setTokenFrom(tokenTo); setTokenTo(temp);
+                    const tempT = tokenFrom; setTokenFrom(tokenTo); setTokenTo(tempT);
                 } else {
-                    const temp = srcNetKey; setSrcNetKey(destNetKey); setDestNetKey(temp);
+                    const tempN = srcNetKey; setSrcNetKey(destNetKey); setDestNetKey(tempN);
                 }
-            };
-
-            const handleAction = () => {
-                setIsLoading(true); setStatus(t.waiting);
-                setTimeout(() => {
-                    setIsLoading(false); setStatus(t.success); setAmount('');
-                    setTimeout(() => setStatus(''), 3000);
-                }, mode === 'bridge' ? 4000 : 2000);
             };
 
             useEffect(() => {
                 if (window.ethereum) {
-                    window.ethereum.on('accountsChanged', (accs) => setAccount(accs[0] || ''));
+                    window.ethereum.on('accountsChanged', (a) => setAccount(a[0] || ''));
                     window.ethereum.on('chainChanged', (id) => setChainId(id));
                 }
             }, []);
@@ -227,7 +202,7 @@
 
                     <nav className="w-full max-w-5xl flex justify-between items-center mb-10 z-50">
                         <div className="flex items-center gap-2 font-black text-2xl tracking-tighter">
-                            <div className="bg-purple-600 p-1.5 rounded-xl shadow-lg shadow-purple-600/20">
+                            <div className="bg-purple-600 p-1.5 rounded-xl">
                                 <Icon name="activity" className="text-white" />
                             </div>
                             <span>Inkit</span>
@@ -239,7 +214,7 @@
                                     <option value="en">EN</option><option value="fr">FR</option><option value="zh">ZH</option>
                                 </select>
                             </div>
-                            <button onClick={connectWallet} className="bg-[#131a2a] border border-slate-800 px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#1c2438] transition-colors shadow-sm">
+                            <button onClick={connectWallet} className="bg-[#131a2a] border border-slate-800 px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#1c2438] transition-colors">
                                 <Icon name="wallet" size={16} className="text-purple-400" />
                                 {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : t.connect}
                             </button>
@@ -248,10 +223,10 @@
 
                     <div className="w-full max-w-[480px] z-10">
                         <div className="flex bg-[#131a2a] p-1 rounded-2xl mb-4 border border-slate-800 shadow-xl">
-                            <button onClick={() => setMode('swap')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${mode === 'swap' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
+                            <button onClick={() => setMode('swap')} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${mode === 'swap' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
                                 <Icon name="refresh" size={16} /> {t.swap}
                             </button>
-                            <button onClick={() => setMode('bridge')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${mode === 'bridge' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
+                            <button onClick={() => setMode('bridge')} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${mode === 'bridge' ? 'bg-[#1c2438] text-white' : 'text-slate-500'}`}>
                                 <Icon name="bridge" size={16} /> {t.bridge}
                             </button>
                         </div>
@@ -261,7 +236,9 @@
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{t.from}</span>
-                                        <span className="text-[10px] text-purple-400/80 font-bold">{t.balance}: {balanceFrom}</span>
+                                        <span className="text-[10px] text-purple-400 font-bold tracking-tight">
+                                            {t.balance}: {loadingBal ? '...' : balFrom}
+                                        </span>
                                     </div>
                                     <div className="relative">
                                         <button onClick={() => setShowSrcNet(!showSrcNet)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-1.5 rounded-full border border-slate-700 hover:border-purple-500 transition-all">
@@ -272,7 +249,7 @@
                                         {showSrcNet && (
                                             <div className="absolute top-10 right-0 w-40 bg-[#1a2133] border border-slate-700 rounded-xl p-1 z-50 shadow-2xl">
                                                 {Object.entries(NETWORKS).map(([k, n]) => (
-                                                    <div key={k} onClick={() => switchNet(k, true)} className="flex items-center gap-2 p-2.5 hover:bg-slate-700 rounded-lg cursor-pointer text-xs">
+                                                    <div key={k} onClick={() => switchNet(k, true)} className="flex items-center gap-2 p-2.5 hover:bg-slate-700 rounded-lg cursor-pointer text-xs font-medium">
                                                         <img src={n.icon} className="w-4 h-4 rounded-full" /> {n.name}
                                                     </div>
                                                 ))}
@@ -282,7 +259,7 @@
                                 </div>
                                 <div className="flex justify-between items-center gap-4">
                                     <input type="number" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} className="bg-transparent text-4xl font-medium w-full outline-none placeholder:text-slate-800" />
-                                    <button onClick={() => setShowTokenFrom(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700">
+                                    <button onClick={() => setShowTokenFrom(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700 shadow-sm">
                                         <img src={tokenFrom.icon} className="w-6 h-6 rounded-full" /> 
                                         <span>{tokenFrom.symbol}</span>
                                         <Icon name="chevronDown" size={14} className="text-slate-500" />
@@ -292,7 +269,7 @@
 
                             <div className="flex justify-center -my-3 relative z-20">
                                 <div className="bg-[#131a2a] p-1 rounded-xl">
-                                    <button onClick={handleSwitch} className="bg-[#1c2438] p-2 rounded-xl border border-slate-800 text-purple-400 shadow-lg hover:text-white transition-all active:scale-90">
+                                    <button onClick={handleSwitchTokens} className="bg-[#1c2438] p-2 rounded-xl border border-slate-800 text-purple-400 shadow-lg hover:text-white transition-all active:scale-90">
                                         {mode === 'swap' ? <Icon name="arrowDown" size={20} /> : <Icon name="bridge" size={20} />}
                                     </button>
                                 </div>
@@ -302,7 +279,9 @@
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{t.to}</span>
-                                        <span className="text-[10px] text-purple-400/80 font-bold">{t.balance}: {balanceTo}</span>
+                                        <span className="text-[10px] text-purple-400 font-bold tracking-tight">
+                                            {t.balance}: {loadingBal ? '...' : balTo}
+                                        </span>
                                     </div>
                                     <div className="relative">
                                         <button disabled={mode === 'swap'} onClick={() => setShowDestNet(!showDestNet)} className={`flex items-center gap-2 bg-[#1c2438] px-3 py-1.5 rounded-full border border-slate-700 ${mode === 'swap' ? 'opacity-70' : 'hover:border-purple-500'}`}>
@@ -313,7 +292,7 @@
                                         {showDestNet && mode === 'bridge' && (
                                             <div className="absolute top-10 right-0 w-40 bg-[#1a2133] border border-slate-700 rounded-xl p-1 z-50 shadow-2xl">
                                                 {Object.entries(NETWORKS).map(([k, n]) => (
-                                                    <div key={k} onClick={() => switchNet(k, false)} className="flex items-center gap-2 p-2.5 hover:bg-slate-700 rounded-lg cursor-pointer text-xs">
+                                                    <div key={k} onClick={() => switchNet(k, false)} className="flex items-center gap-2 p-2.5 hover:bg-slate-700 rounded-lg cursor-pointer text-xs font-medium">
                                                         <img src={n.icon} className="w-4 h-4 rounded-full" /> {n.name}
                                                     </div>
                                                 ))}
@@ -323,7 +302,7 @@
                                 </div>
                                 <div className="flex justify-between items-center gap-4">
                                     <div className="text-4xl font-medium text-slate-400 truncate">{amount ? (amount * 0.995).toFixed(2) : "0"}</div>
-                                    <button onClick={() => setShowTokenTo(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700">
+                                    <button onClick={() => setShowTokenTo(true)} className="flex items-center gap-2 bg-[#1c2438] px-3 py-2 rounded-full font-bold shrink-0 border border-slate-700 shadow-sm">
                                         <img src={tokenTo.icon} className="w-6 h-6 rounded-full" /> 
                                         <span>{tokenTo.symbol}</span>
                                         <Icon name="chevronDown" size={14} className="text-slate-500" />
@@ -332,20 +311,18 @@
                             </div>
 
                             <div className="p-2 mt-2">
-                                {status && (
-                                    <div className={`mb-4 p-3 rounded-xl text-center text-sm font-bold flex items-center justify-center gap-2 ${status === t.success ? 'bg-green-500/10 text-green-400' : 'bg-purple-500/10 text-purple-400 animate-pulse'}`}>
-                                        {isLoading && <Icon name="refresh" size={16} className="animate-spin" />} {status}
-                                    </div>
-                                )}
+                                {status && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-xs text-red-400">{status}</div>}
                                 {!account ? (
                                     <button onClick={connectWallet} className="w-full bg-purple-600 py-4 rounded-2xl font-bold text-lg active:scale-95 transition-all shadow-lg shadow-purple-600/20">{t.connect}</button>
-                                ) : !isCorrectNet ? (
-                                    <button onClick={() => switchNet(srcNetKey, true)} className="w-full bg-red-500/10 text-red-400 py-4 rounded-2xl font-bold border border-red-500/20">{t.switchNet} {srcNet.name}</button>
+                                ) : !isCorrectNet(chainId, srcNet.id) ? (
+                                    <button onClick={() => switchNet(srcNetKey, true)} className="w-full bg-red-500/10 text-red-400 py-4 rounded-2xl font-bold border border-red-500/20 flex justify-center items-center gap-2">
+                                        <Icon name="alert" size={20} /> {t.switchNet} {srcNet.name}
+                                    </button>
                                 ) : !amount ? (
                                     <button disabled className="w-full bg-[#1c2438] text-slate-600 py-4 rounded-2xl font-bold">{t.enterAmount}</button>
                                 ) : (
-                                    <button onClick={handleAction} disabled={isLoading} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all text-lg">
-                                        {isLoading ? t.waiting : (mode === 'swap' ? t.btnSwap : t.btnBridge)}
+                                    <button onClick={() => { setIsLoading(true); setTimeout(() => { setIsLoading(false); setStatus('✅ Simulation: Action Success!'); setAmount(''); setTimeout(() => setStatus(''), 4000); }, 3000); }} disabled={isLoading} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all text-lg flex justify-center items-center gap-2">
+                                        {isLoading && <Icon name="refresh" className="animate-spin" />} {isLoading ? t.waiting : (mode === 'swap' ? t.btnSwap : t.btnBridge)}
                                     </button>
                                 )}
                             </div>
@@ -354,29 +331,23 @@
 
                     {(showTokenFrom || showTokenTo) && (
                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm bg-black/80">
-                            <div className="relative w-full max-w-sm bg-[#131a2a] border border-slate-800 rounded-[32px] p-6 shadow-2xl">
+                            <div className="relative w-full max-w-sm bg-[#131a2a] border border-slate-800 rounded-[32px] p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-xl font-bold">{t.selectToken}</h3>
                                     <button onClick={() => {setShowTokenFrom(false); setShowTokenTo(false);}} className="text-slate-500 hover:text-white"><Icon name="close" size={24} /></button>
                                 </div>
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                     {TOKENS.map(token => {
-                                        const isAvailableOnNet = token.symbol === 'ETH' || token.symbol === 'USDT' || token.symbol === 'USDC' || (token.symbol === 'ANITA' && srcNetKey === 'ink');
+                                        const isAvailable = token.symbol !== 'ANITA' || srcNetKey === 'ink';
                                         return (
-                                            <div 
-                                                key={token.symbol} 
-                                                onClick={() => {
-                                                    if (!isAvailableOnNet && mode === 'swap') return;
-                                                    if (showTokenFrom) setTokenFrom(token); else setTokenTo(token);
-                                                    setShowTokenFrom(false); setShowTokenTo(false);
-                                                }}
-                                                className={`flex items-center justify-between p-4 rounded-2xl border border-transparent transition-all ${isAvailableOnNet ? 'hover:bg-slate-800 cursor-pointer hover:border-slate-700' : 'opacity-40 grayscale cursor-not-allowed'}`}
+                                            <div key={token.symbol} 
+                                                onClick={() => { if (isAvailable) { if (showTokenFrom) setTokenFrom(token); else setTokenTo(token); setShowTokenFrom(false); setShowTokenTo(false); }}}
+                                                className={`flex items-center justify-between p-4 rounded-2xl border border-transparent transition-all ${isAvailable ? 'hover:bg-slate-800 cursor-pointer hover:border-slate-700' : 'opacity-40 cursor-not-allowed grayscale'}`}
                                             >
                                                 <div className="flex items-center gap-4">
                                                     <img src={token.icon} className="w-8 h-8 rounded-full shadow-md" />
                                                     <div><p className="font-bold">{token.symbol}</p><p className="text-xs text-slate-500">{token.name}</p></div>
                                                 </div>
-                                                {token.symbol === 'ANITA' && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded-md font-bold uppercase">Ink Exclusive</span>}
                                             </div>
                                         );
                                     })}
